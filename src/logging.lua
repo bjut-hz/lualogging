@@ -146,7 +146,7 @@ end
 -- Prepares the log message
 -------------------------------------------------------------------------------
 function logging.prepareLogMsg(pattern, dt, level, message)
-	local logMsg = pattern or "%date %level %message\n"
+	local logMsg = pattern or "[%date] [%level]: %message\n"
 	message = string.gsub(message, "%%", "%%%%")
 	logMsg = string.gsub(logMsg, "%%date", dt)
 	logMsg = string.gsub(logMsg, "%%level", level)
