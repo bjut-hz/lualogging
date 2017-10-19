@@ -8,7 +8,13 @@
 -- @copyright 2004-2013 Kepler Project
 ---------------------------------------------------------------------------
 
+---------------------------------------------------------------------------
+-- TODO:
+-- 1: log func trace back level
+-- 2: multiple file
+---------------------------------------------------------------------------
 local logging = require"logging"
+
 
 local function openFile(self)
 	self.file = io.open(self.filename, "a")
@@ -58,18 +64,57 @@ function logging.rolling_file(filename, maxFileSize, maxBackupIndex, logPattern)
 		filename = "lualogging.log"
 	end
 
-	local obj = {
-		filename = filename,
+
+	local OBJ = {
+		file = nil,
+		base_name = filename,
 		maxSize  = maxFileSize,
-		maxIndex = maxBackupIndex or 1
+		maxIndex = maxBackupIndex or 1,
+		date = os.time()
 	}
 
+	function OBJ:new(o)
+		o = o or {}
+		setmetatable(o, self)
+		self.__index = self
+		return o
+	end
+
+
+	local logs = {}
+
+	local function is_change_day(tbl)
+		local cu_day = os.date("*t", os.time()).day
+		local last_day = os.date("*t", tbl.date).day
+		return cu_day ~= last_day
+	end
+
+	local function format_filename(obj, level)
+		-- file name format: yyyy-mm-dd-basename-LEVEL.log
+		return os.date("%Y-%m-%d", obj.date) .. "-" .. obj.base_name .. "-" .. level .. ".log"
+	end
+
 	return logging.new( function(self, level, message)
-		local f, msg = openRollingFileLogger(obj)
+		if logs[level] == nil then
+			logs[level] = OBJ:new()
+			local log_info = logs[level]
+
+			log_info.filename = format_filename(log_info, level)
+		end
+
+		-- should write to new file when over 1 day
+		if is_change_day(logs[level]) then
+			local log_info = logs[level]
+			log_info.date = os.time()
+			log_info.file = nil
+			log_info.filename = format_filename(log_info, level)
+		end
+
+		local f, msg = openRollingFileLogger(logs[level])
 		if not f then
 			return nil, msg
 		end
-		local s = logging.prepareLogMsg(logPattern, os.date(), level, message)
+		local s = logging.prepareLogMsg(logPattern, os.date("%Y/%m/%d %H:%M:%S"), level, message)
 		f:write(s)
 		return true
 	end)
